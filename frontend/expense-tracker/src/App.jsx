@@ -1,4 +1,5 @@
 import { Route, BrowserRouter as Router, Routes } from 'react-router-dom'
+import UserProvider from './context/UserContext'
 import Login from './pages/Auth/Login'
 import Signup from './pages/Auth/Signup'
 import Expence from './pages/Dashboard/Expence'
@@ -8,6 +9,7 @@ import Income from './pages/Dashboard/Income'
 
 const App = () => {
   return (
+    <UserProvider>
     <div>
       <Router>
         <Routes>
@@ -20,6 +22,7 @@ const App = () => {
           </Routes>
       </Router>
     </div>
+    </UserProvider>
   )
 }
 

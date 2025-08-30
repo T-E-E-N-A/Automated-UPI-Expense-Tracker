@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useContext, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import AuthLayout from '../../components/Layouts/AuthLayout';
+import { UserContext } from '../../context/UserContext';
 import Input from '../../Inputs/Input';
 import { validateEmail } from '../../utils/helper';
 import './AuthLayout.css';
@@ -10,8 +11,10 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const navigate = useNavigate();
+  const { setUser } = useContext(UserContext);
 
 
+  
   // Handle login
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -31,7 +34,13 @@ const Login = () => {
     }
     
      // Login Api call
+      //fake user data
+  setUser({
+      name: "Test User",
+      email: email,
+    });
   }
+ 
 
  
 
