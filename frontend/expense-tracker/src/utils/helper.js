@@ -10,3 +10,12 @@ export const addThousandsSeparator = (num) => {
     if (num === undefined || num === null) return '0';
     return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 }
+
+import moment from "moment";
+
+export const prepareExpenseBarChartData = (data = []) => {
+  return data.map(item => ({
+    label: moment(item.date).format("MMM DD"), // e.g., "Aug 20"
+    value: Number(item.amount) || 0,
+  }));
+};
