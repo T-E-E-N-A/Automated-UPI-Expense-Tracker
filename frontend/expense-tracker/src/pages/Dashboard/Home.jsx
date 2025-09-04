@@ -3,9 +3,12 @@ import { LuHandCoins, LuWalletMinimal } from 'react-icons/lu';
 import { useNavigate } from 'react-router-dom';
 import InfoCard from '../../Cards/InfoCard';
 import DashBoardLayout from '../../components/layouts/DashBoardLayout';
+import ExpenseTransactions from '../../Dashboard/ExpenseTransactions';
 import FinanceOverview from '../../Dashboard/FinanceOverview';
+import Last30DaysExpenses from '../../Dashboard/last30DaysExpenses';
 import RecentTransactions from '../../Dashboard/RecentTransactions';
 import { addThousandsSeparator } from '../../utils/helper';
+
 
 const Home = () => {
   const navigate = useNavigate();
@@ -21,6 +24,12 @@ const Home = () => {
       { id: 4, title: "Freelance Project", icon: null, date: "2025-08-25", amount: 500, type: "income" },
       { id: 5, title: "Movie Night", icon: null, date: "2025-08-24", amount: 50, type: "expense" },
     ],
+    last30DaysExpenses: [
+    { id: 6, title: "Transport", icon: null, date: "2025-08-20", amount: 200, type: "expense" },
+    { id: 7, title: "Health Checkup", icon: null, date: "2025-08-15", amount: 700, type: "expense" },
+    { id: 8, title: "Online Shopping", icon: null, date: "2025-08-10", amount: 1200, type: "expense" },
+    { id: 9, title: "Snacks", icon: null, date: "2025-08-05", amount: 100, type: "expense" },
+  ],
   };
 
   return (
@@ -49,14 +58,22 @@ const Home = () => {
         <RecentTransactions
           transactions={dashboardData.RecentTransactions}
           onSeeMore={() => navigate("/expense")}
-        />
+        /> 
 
         {/* Finance Overview */}
-        <FinanceOverview
+         <FinanceOverview
           totalBalance={dashboardData.totalBalance}
           totalIncome={dashboardData.totalincome}
           totalExpense={dashboardData.totalExpense}
-        />
+        />  
+        <ExpenseTransactions
+        transactions={dashboardData.last30DaysExpenses}
+        onSeeMore={() => navigate("/expense")}
+         />
+         <Last30DaysExpenses
+        transactions={dashboardData.last30DaysExpenses}
+        onSeeMore={() => navigate("/expense")}
+         />
       </div>
     </DashBoardLayout>
   );
