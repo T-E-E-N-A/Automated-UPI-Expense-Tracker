@@ -34,6 +34,31 @@ const Login = () => {
     }
     
      // Login Api call
+    try {
+      const res = await fetch("http://localhost:8080/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email,
+          password
+          // profilePic, // if you want to send profile image URL/base64
+        }),
+        credentials: "include"
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.message || "Login failed");
+        return;
+      }
+
+      // If signup is successful → redirect to dashboard
+      navigate("/dashboard");
+    } catch (err) {
+      setError("Something went wrong. Try again later."+err);
+    }
+
       //fake user data
   setUser({
       name: "Test User",

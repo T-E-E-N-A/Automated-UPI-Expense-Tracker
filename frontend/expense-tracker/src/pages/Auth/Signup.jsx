@@ -37,6 +37,32 @@ const Signup = () => {
       return;
     }
     // Signup Api call
+    try {
+      const res = await fetch("http://localhost:8080/api/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name,
+          email,
+          password
+          // profilePic, // if you want to send profile image URL/base64
+        }),
+        credentials: "include"
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.message || "Signup failed");
+        return;
+      }
+
+      // If signup is successful → redirect to login or dashboard
+      navigate("/login");
+    } catch (err) {
+      setError("Something went wrong. Try again later."+err);
+    }
+
   }
 
 
