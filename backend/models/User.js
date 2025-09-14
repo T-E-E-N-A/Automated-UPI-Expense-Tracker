@@ -15,8 +15,14 @@ const userSchema = mongoose.Schema({
         type:String,
         trim:true,
         required:true
-    }
-})
+    },
+    transactions : [
+        {
+            type: mongoose.Schema.Types.ObjectId,
+            ref : 'Expense'
+        }
+    ]
+});
 
 let User = mongoose.model('User',userSchema)
 

@@ -10,18 +10,18 @@ import Income from './pages/Dashboard/Income'
 const App = () => {
   return (
     <UserProvider>
-    <div>
-      <Router>
-        <Routes>
-          <Route path="/" element={<Root />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/signup" element={<Signup />} />
-          <Route path="/dashboard" element={<Home />} />
-          <Route path="/income" element={<Income />} />
-          <Route path="/expence" element={<Expence />} />
+      <div>
+        <Router>
+          <Routes>
+            <Route path="/" element={<Root />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/signup" element={<Signup />} />
+            <Route path="/dashboard" element={<Home />} />
+            <Route path="/income" element={<Income />} />
+            <Route path="/expence" element={<Expence />} />
           </Routes>
-      </Router>
-    </div>
+        </Router>
+      </div>
     </UserProvider>
   )
 }
