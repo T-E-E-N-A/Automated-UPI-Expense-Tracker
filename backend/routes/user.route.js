@@ -10,5 +10,8 @@ router.get('/api/register',(req,res)=>{
 })
 router.post('/api/login',loginUser)
 router.post('/api/logout',logOut)
+router.get('/api/logout',(req,res)=>{
+    res.send("working")
+})
 
 module.exports = router;

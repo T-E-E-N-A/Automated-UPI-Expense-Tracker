@@ -15,9 +15,18 @@ const SideMenu = ({ activeMenu }) => {
     navigate(route);
   };
 
-  const handleLogout = () => {
-    clearUser();
-    navigate('/login');
+  const handleLogout = async () => {
+    try {
+      await fetch("http://localhost:8080/api/logout", {
+        method: "POST",
+        credentials: "include"  // important so cookie is sent
+      });
+
+      clearUser(); // clear local context
+      navigate("/login");
+    } catch (err) {
+      console.error("Logout error:", err);
+    }
   };
 
   return (
