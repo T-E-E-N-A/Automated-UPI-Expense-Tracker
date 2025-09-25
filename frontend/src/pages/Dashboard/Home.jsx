@@ -3,7 +3,7 @@ import { LuHandCoins, LuWalletMinimal } from 'react-icons/lu';
 import { useNavigate } from 'react-router-dom';
 import InfoCard from '../../Cards/InfoCard';
 import DashBoardLayout from '../../components/layouts/DashBoardLayout';
-import ExpenseTransactions from '../../Dashboard/ExpenseTransactions';
+import ExpenseTransactions from '../Dashboard/ExpenseTransactions';
 import FinanceOverview from '../../Dashboard/FinanceOverview';
 import Last30DaysExpenses from '../../Dashboard/last30DaysExpenses';
 import RecentTransactions from '../../Dashboard/RecentTransactions';
