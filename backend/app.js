@@ -1,6 +1,3 @@
-if (process.env.NODE_ENV !== 'production') {
-    require('dotenv').config();
-}
 const cors = require('cors');
 const express = require('express')
 const path = require('path')
@@ -37,7 +34,7 @@ app.use("/login", loginLimiter);
 
 
 
-const dbUrl = process.env.dbUrl || 'mongodb://localhost:27017/expenseTracker'
+const dbUrl ='mongodb://localhost:27017/expenseTracker'
 mongoose.connect(dbUrl)
 .then(()=>{
     console.log("Database Connected succesfully")
@@ -68,7 +65,7 @@ const userRoutes = require('./routes/user.route');
 app.use(userRoutes)
 
 
-const port = process.env.PORT || 8080;
+const port =  8000;
 app.listen(port,()=>{
     console.log(`server connected successfully at port ${port}`);
 })

@@ -9,77 +9,77 @@ import { Link, useNavigate } from "react-router-dom";
 const Signup = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [error, setError] = useState("");
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     password: "",
-    confirmPassword: ""
+    confirmPassword: "",
   });
+
   const navigate = useNavigate();
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (formData.password !== formData.confirmPassword) {
-      alert("Passwords don't match");
-      return;
-    }
-    // Mock signup - in real app, this would create account with backend
-    // if (formData.name && formData.email && formData.password) {
-    //   localStorage.setItem("isAuthenticated", "true");
-    //   navigate("/dashboard");
-    // }
-  };
+  const validateEmail = (email) => /\S+@\S+\.\S+/.test(email);
+
   const handleSignup = async (e) => {
-  e.preventDefault();
-  setError("");
+    e.preventDefault();
+    setError("");
 
-  const { name, email, password } = formData;
+    localStorage.setItem("isAuthenticated", "true"); //dummy
+    navigate("/dashboard");
 
-  if (!name) {
-    setError("Name is required");
-    return;
-  }
-  if (!validateEmail(email)) {
-    setError("Please enter a valid email");
-    return;
-  }
-  if (!password) {
-    setError("Password is required");
-    return;
-  }
-  if (password.length < 6) {
-    setError("Password must be at least 6 characters long");
-    return;
-  }
+    const { name, email, password, confirmPassword } = formData;
 
-  try {
-    const res = await fetch(`${process.env.REACT_APP_backendUrl}/api/register`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, email, password }),
-      credentials: "include",
-    });
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      setError(data.message || "Signup failed");
+    if (password !== confirmPassword) {
+      setError("Passwords don't match");
+      return;
+    }
+    if (!name) {
+      setError("Name is required");
+      return;
+    }
+    if (!validateEmail(email)) {
+      setError("Please enter a valid email");
+      return;
+    }
+    if (!password) {
+      setError("Password is required");
+      return;
+    }
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters long");
       return;
     }
 
-    // ✅ Redirect only after success
-    navigate("/login");
-  } catch (err) {
-    setError("Something went wrong. Try again later. " + err);
-  }
-};
+    try {
+      const res = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, password }),
+        credentials: "include",
+      });
 
-// To update form fields
-const handleInputChange = (field, value) => {
-  setFormData((prev) => ({ ...prev, [field]: value }));
-};
+      let data;
+      try {
+        data = await res.json();
+      } catch {
+        data = {};
+      }
 
+      if (!res.ok) {
+        setError(data.message || "Signup failed");
+        return;
+      }
 
+      navigate("/login");
+    } catch (err) {
+      setError("Something went wrong. Try again later. " + err.message);
+    }
+  };
+
+  const handleInputChange = (field, value) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-secondary to-background flex items-center justify-center p-4">
@@ -98,7 +98,9 @@ const handleInputChange = (field, value) => {
             <CardDescription>Create your account to get started</CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSignup} className="space-y-4">
+              {error && <p className="text-red-500 text-sm">{error}</p>}
+
               <div className="space-y-2">
                 <Label htmlFor="name">Full Name</Label>
                 <Input
@@ -124,7 +126,7 @@ const handleInputChange = (field, value) => {
                   className="h-11"
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>
                 <div className="relative">
@@ -144,11 +146,7 @@ const handleInputChange = (field, value) => {
                     className="absolute right-0 top-0 h-11 px-3 py-2 hover:bg-transparent"
                     onClick={() => setShowPassword(!showPassword)}
                   >
-                    {showPassword ? (
-                      <EyeOff className="h-4 w-4" />
-                    ) : (
-                      <Eye className="h-4 w-4" />
-                    )}
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </Button>
                 </div>
               </div>
@@ -172,11 +170,7 @@ const handleInputChange = (field, value) => {
                     className="absolute right-0 top-0 h-11 px-3 py-2 hover:bg-transparent"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                   >
-                    {showConfirmPassword ? (
-                      <EyeOff className="h-4 w-4" />
-                    ) : (
-                      <Eye className="h-4 w-4" />
-                    )}
+                    {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </Button>
                 </div>
               </div>
@@ -189,10 +183,7 @@ const handleInputChange = (field, value) => {
             <div className="mt-6 text-center">
               <p className="text-sm text-muted-foreground">
                 Already have an account?{" "}
-                <Link 
-                  to="/login" 
-                  className="font-medium text-primary hover:text-primary-hover transition-colors"
-                >
+                <Link to="/login" className="font-medium text-primary hover:text-primary-hover transition-colors">
                   Sign in
                 </Link>
               </p>

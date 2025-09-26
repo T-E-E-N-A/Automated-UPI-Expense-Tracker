@@ -10,42 +10,40 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    // Mock login - in real app, this would authenticate with backend
-    // if (email && password) {
-    //   localStorage.setItem("isAuthenticated", "true");
-    //   navigate("/dashboard");
-    // }
+    setError("");
+
+    localStorage.setItem("isAuthenticated", "true"); //dummy
+     navigate("/dashboard");
+
     try {
-      //console.log("Backend URL:", process.env.REACT_APP_backendUrl);
-      const res = await fetch(`${process.env.REACT_APP_backendUrl}/api/login`, {
+      const res = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email,
-          password
-          // profilePic, // if you want to send profile image URL/base64
-        }),
-        credentials: "include"
+        body: JSON.stringify({ email, password }),
+        credentials: "include",
       });
-        
 
-      const data = await res.json();
+      let data;
+      try {
+        data = await res.json();
+      } catch {
+        data = {};
+      }
 
       if (!res.ok) {
         setError(data.message || "Login failed");
         return;
       }
 
-      // Store auth state only after success
       localStorage.setItem("isAuthenticated", "true");
-      // If signup is successful → redirect to dashboard
       navigate("/dashboard");
     } catch (err) {
-      setError("Something went wrong. Try again later."+err);
+      setError("Something went wrong. Try again later. " + err.message);
     }
   };
 
@@ -67,6 +65,8 @@ const Login = () => {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
+              {error && <p className="text-red-500 text-sm">{error}</p>}
+
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
                 <Input
@@ -79,7 +79,7 @@ const Login = () => {
                   className="h-11"
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>
                 <div className="relative">
@@ -99,11 +99,7 @@ const Login = () => {
                     className="absolute right-0 top-0 h-11 px-3 py-2 hover:bg-transparent"
                     onClick={() => setShowPassword(!showPassword)}
                   >
-                    {showPassword ? (
-                      <EyeOff className="h-4 w-4" />
-                    ) : (
-                      <Eye className="h-4 w-4" />
-                    )}
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </Button>
                 </div>
               </div>
@@ -116,10 +112,7 @@ const Login = () => {
             <div className="mt-6 text-center">
               <p className="text-sm text-muted-foreground">
                 Don't have an account?{" "}
-                <Link 
-                  to="/signup" 
-                  className="font-medium text-primary hover:text-primary-hover transition-colors"
-                >
+                <Link to="/signup" className="font-medium text-primary hover:text-primary-hover transition-colors">
                   Sign up
                 </Link>
               </p>

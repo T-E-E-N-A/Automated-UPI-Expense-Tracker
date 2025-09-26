@@ -22,6 +22,10 @@ export function AppSidebar() {
     isActive ? "bg-primary text-primary-foreground" : "hover:bg-accent hover:text-accent-foreground";
 
   const handleLogout = async() => {
+
+    localStorage.removeItem("isAuthenticated"); //dummy
+    window.location.href = "/signup";
+
     try {
     await fetch(`${process.env.REACT_APP_backendUrl}/api/logout`, {
       method: "POST",
