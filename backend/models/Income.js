@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 
-const expenseSchema = new mongoose.Schema({
+const incomeSchema = new mongoose.Schema({
   userId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
@@ -12,33 +12,22 @@ const expenseSchema = new mongoose.Schema({
     required: [true, 'Date is required'],
     default: Date.now
   },
-  category: {
+  source: {
     type: String,
-    required: [true, 'Category is required'],
+    required: [true, 'Source is required'],
     enum: [
-      'Food & Dining',
-      'Transportation',
-      'Shopping',
-      'Entertainment',
-      'Healthcare',
-      'Utilities',
-      'Education',
-      'Travel',
-      'Insurance',
+      'Salary',
+      'Freelance',
+      'Investment Returns',
+      'Bonus',
+      'Gift',
+      'Side Business',
+      'Rental Income',
+      'Dividends',
+      'Interest',
       'Other'
     ],
     index: true
-  },
-  merchant: {
-    type: String,
-    required: [true, 'Merchant/UPI ID is required'],
-    trim: true,
-    maxlength: [100, 'Merchant name cannot exceed 100 characters']
-  },
-  upiId: {
-    type: String,
-    trim: true,
-    maxlength: [50, 'UPI ID cannot exceed 50 characters']
   },
   amount: {
     type: Number,
@@ -51,18 +40,13 @@ const expenseSchema = new mongoose.Schema({
     trim: true,
     maxlength: [500, 'Notes cannot exceed 500 characters']
   },
-  paymentMethod: {
-    type: String,
-    enum: ['UPI', 'Card', 'Cash', 'Bank Transfer', 'Other'],
-    default: 'UPI'
-  },
   isRecurring: {
     type: Boolean,
     default: false
   },
   recurringFrequency: {
     type: String,
-    enum: ['daily', 'weekly', 'monthly', 'yearly'],
+    enum: ['weekly', 'monthly', 'quarterly', 'yearly'],
     default: null
   },
   tags: [{
@@ -79,13 +63,12 @@ const expenseSchema = new mongoose.Schema({
 });
 
 // Compound indexes for better query performance
-expenseSchema.index({ userId: 1, date: -1 });
-expenseSchema.index({ userId: 1, category: 1 });
-expenseSchema.index({ userId: 1, createdAt: -1 });
-expenseSchema.index({ merchant: 'text', notes: 'text' });
+incomeSchema.index({ userId: 1, date: -1 });
+incomeSchema.index({ userId: 1, source: 1 });
+incomeSchema.index({ userId: 1, createdAt: -1 });
 
 // Virtual for formatted amount
-expenseSchema.virtual('formattedAmount').get(function() {
+incomeSchema.virtual('formattedAmount').get(function() {
   return new Intl.NumberFormat('en-IN', {
     style: 'currency',
     currency: 'INR'
@@ -93,7 +76,7 @@ expenseSchema.virtual('formattedAmount').get(function() {
 });
 
 // Virtual for formatted date
-expenseSchema.virtual('formattedDate').get(function() {
+incomeSchema.virtual('formattedDate').get(function() {
   return this.date.toLocaleDateString('en-IN', {
     day: '2-digit',
     month: 'short',
@@ -101,15 +84,15 @@ expenseSchema.virtual('formattedDate').get(function() {
   });
 });
 
-// Instance method to check if expense is recent
-expenseSchema.methods.isRecent = function(days = 30) {
+// Instance method to check if income is recent
+incomeSchema.methods.isRecent = function(days = 30) {
   const cutoffDate = new Date();
   cutoffDate.setDate(cutoffDate.getDate() - days);
   return this.date >= cutoffDate;
 };
 
-// Static method to get total expenses for a user
-expenseSchema.statics.getTotalExpenses = async function(userId, startDate, endDate) {
+// Static method to get total income for a user
+incomeSchema.statics.getTotalIncome = async function(userId, startDate, endDate) {
   const matchQuery = { userId };
   if (startDate && endDate) {
     matchQuery.date = { $gte: startDate, $lte: endDate };
@@ -123,8 +106,8 @@ expenseSchema.statics.getTotalExpenses = async function(userId, startDate, endDa
   return result.length > 0 ? result[0].total : 0;
 };
 
-// Static method to get expenses by category
-expenseSchema.statics.getExpensesByCategory = async function(userId, startDate, endDate) {
+// Static method to get income by source
+incomeSchema.statics.getIncomeBySource = async function(userId, startDate, endDate) {
   const matchQuery = { userId };
   if (startDate && endDate) {
     matchQuery.date = { $gte: startDate, $lte: endDate };
@@ -132,11 +115,11 @@ expenseSchema.statics.getExpensesByCategory = async function(userId, startDate, 
   
   return await this.aggregate([
     { $match: matchQuery },
-    { $group: { _id: '$category', total: { $sum: '$amount' }, count: { $sum: 1 } } },
+    { $group: { _id: '$source', total: { $sum: '$amount' }, count: { $sum: 1 } } },
     { $sort: { total: -1 } }
   ]);
 };
 
-const Expense = mongoose.model('Expense', expenseSchema);
+const Income = mongoose.model('Income', incomeSchema);
 
-export default Expense;
+export default Income;
