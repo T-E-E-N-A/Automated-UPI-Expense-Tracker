@@ -1,23 +1,92 @@
-const mongoose = require("mongoose");
+import mongoose from 'mongoose';
+import bcrypt from 'bcryptjs';
 
-const userSchema = mongoose.Schema({
-    name : {
-        type:String,
-        trim:true,
-        required:true
+const userSchema = new mongoose.Schema({
+  // Clerk integration fields
+  clerkId: {
+    type: String,
+    unique: true,
+    sparse: true // Allows null values but ensures uniqueness when present
+  },
+  profileImage: {
+    type: String,
+    default: null
+  },
+  firstName: {
+    type: String,
+    trim: true
+  },
+  lastName: {
+    type: String,
+    trim: true
+  },
+  phoneNumber: {
+    type: String,
+    trim: true,
+    default: null
+  },
+  // Traditional fields
+  name: {
+    type: String,
+    required: [true, 'Name is required'],
+    trim: true,
+    minlength: [2, 'Name must be at least 2 characters long'],
+    maxlength: [50, 'Name cannot exceed 50 characters']
+  },
+  email: {
+    type: String,
+    required: [true, 'Email is required'],
+    unique: true,
+    lowercase: true,
+    trim: true,
+    match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, 'Please enter a valid email']
+  },
+  passwordHash: {
+    type: String,
+    required: function() {
+      return !this.clerkId; // Only required if not using Clerk
     },
-    email : {
-        type:String,
-        trim:true,
-        required:true
-    },
-    password : {
-        type:String,
-        trim:true,
-        required:true
-    }
-})
+    minlength: [6, 'Password must be at least 6 characters long']
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now
+  },
+  lastLogin: {
+    type: Date,
+    default: null
+  },
+  isActive: {
+    type: Boolean,
+    default: true
+  }
+}, {
+  timestamps: true
+});
 
-let User = mongoose.model('User',userSchema)
+// Index for better query performance
+userSchema.index({ email: 1 });
+userSchema.index({ clerkId: 1 });
+userSchema.index({ createdAt: -1 });
 
-module.exports = User
+// Instance method to check password
+userSchema.methods.comparePassword = async function(candidatePassword) {
+  return await bcrypt.compare(candidatePassword, this.passwordHash);
+};
+
+// Static method to hash password
+userSchema.statics.hashPassword = async function(password) {
+  const saltRounds = 12;
+  return await bcrypt.hash(password, saltRounds);
+};
+
+// Remove password from JSON output
+userSchema.methods.toJSON = function() {
+  const userObject = this.toObject();
+  delete userObject.passwordHash;
+  return userObject;
+};
+
+const User = mongoose.model('User', userSchema);
+
+export default User;
