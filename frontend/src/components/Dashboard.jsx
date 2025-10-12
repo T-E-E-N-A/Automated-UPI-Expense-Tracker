@@ -17,6 +17,8 @@ const Dashboard = () => {
 
   const [showAddExpense, setShowAddExpense] = useState(false);
   const [showAddIncome, setShowAddIncome] = useState(false);
+  const [bankMessage, setBankMessage] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const totalExpenses = getTotalExpenses();
   const totalIncome = getTotalIncome();
@@ -37,6 +39,24 @@ const Dashboard = () => {
       month: 'short',
       year: 'numeric'
     });
+  };
+
+  const handleProcessMessage = async () => {
+    if (!bankMessage.trim()) return;
+    
+    setIsProcessing(true);
+    try {
+      // TODO: Implement ML processing API call
+      console.log('Processing message:', bankMessage);
+      // Simulate processing delay
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Clear the message after processing
+      setBankMessage('');
+    } catch (error) {
+      console.error('Error processing message:', error);
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   return (
@@ -83,6 +103,67 @@ const Dashboard = () => {
             </div>
             <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
               <span className="text-2xl">📊</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Bank Message Processing Box */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div className="flex items-center space-x-3 mb-4">
+          <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+            <span className="text-xl">🤖</span>
+          </div>
+          <div>
+            <h2 className="text-xl font-semibold text-gray-800">Smart Message Processing</h2>
+            <p className="text-sm text-gray-600">Paste your bank SMS messages here for automatic expense tracking</p>
+          </div>
+        </div>
+        
+        <div className="space-y-4">
+          <div>
+            <label htmlFor="bankMessage" className="block text-sm font-medium text-gray-700 mb-2">
+              Bank Message
+            </label>
+            <textarea
+              id="bankMessage"
+              value={bankMessage}
+              onChange={(e) => setBankMessage(e.target.value)}
+              placeholder="Paste your bank SMS message here...&#10;&#10;Example:&#10;Rs.500.00 debited from A/c **1234 on 15-Dec-23 at 2:30 PM. UPI/123456789012/PAYTM/UPI. Avl Bal Rs.15,000.00"
+              className="w-full h-32 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none text-sm"
+              disabled={isProcessing}
+            />
+          </div>
+          
+          <div className="flex items-center justify-between">
+            <div className="text-xs text-gray-500">
+              {bankMessage.length > 0 && `${bankMessage.length} characters`}
+            </div>
+            <div className="flex space-x-3">
+              <button
+                onClick={() => setBankMessage('')}
+                disabled={isProcessing || !bankMessage.trim()}
+                className="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Clear
+              </button>
+              <button
+                onClick={handleProcessMessage}
+                disabled={isProcessing || !bankMessage.trim()}
+                className="px-6 py-2 text-sm font-medium text-white bg-purple-600 rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
+              >
+                {isProcessing ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <span>Processing...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>🔍</span>
+                    <span>Process Message</span>
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>
