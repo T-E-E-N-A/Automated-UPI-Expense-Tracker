@@ -17,39 +17,76 @@ router.post('/categorize', requireClerkUser, [
     .optional()
     .trim()
     .isLength({ max: 100 })
-    .withMessage('Merchant name cannot exceed 100 characters')
+    .withMessage('Merchant name cannot exceed 100 characters'),
+  body('type')
+    .optional()
+    .isIn(['expense', 'income'])
+    .withMessage('Type must be expense or income')
 ], async (req, res) => {
   try {
-    const { text, merchant } = req.body;
+    const { text, merchant, type = 'expense' } = req.body;
 
     // If ML service is not configured, return default categorization
     if (!process.env.ML_SERVICE_URL) {
-      const defaultCategories = [
-        'Food & Dining',
-        'Transportation', 
-        'Shopping',
-        'Entertainment',
-        'Healthcare',
-        'Utilities',
-        'Other'
-      ];
+      let defaultCategories, suggestedCategory;
       
-      // Simple keyword-based categorization as fallback
-      const textLower = text.toLowerCase();
-      let suggestedCategory = 'Other';
-      
-      if (textLower.includes('food') || textLower.includes('restaurant') || textLower.includes('swiggy') || textLower.includes('zomato')) {
-        suggestedCategory = 'Food & Dining';
-      } else if (textLower.includes('uber') || textLower.includes('ola') || textLower.includes('transport')) {
-        suggestedCategory = 'Transportation';
-      } else if (textLower.includes('amazon') || textLower.includes('flipkart') || textLower.includes('shopping')) {
-        suggestedCategory = 'Shopping';
-      } else if (textLower.includes('netflix') || textLower.includes('movie') || textLower.includes('entertainment')) {
-        suggestedCategory = 'Entertainment';
-      } else if (textLower.includes('hospital') || textLower.includes('pharmacy') || textLower.includes('medical')) {
-        suggestedCategory = 'Healthcare';
-      } else if (textLower.includes('electricity') || textLower.includes('water') || textLower.includes('utility')) {
-        suggestedCategory = 'Utilities';
+      if (type === 'income') {
+        defaultCategories = [
+          'Salary',
+          'Freelance',
+          'Investment',
+          'Business',
+          'Gift',
+          'Refund',
+          'Other'
+        ];
+        
+        // Simple keyword-based categorization for income
+        const textLower = text.toLowerCase();
+        suggestedCategory = 'Other';
+        
+        if (textLower.includes('salary') || textLower.includes('payroll') || textLower.includes('wage')) {
+          suggestedCategory = 'Salary';
+        } else if (textLower.includes('freelance') || textLower.includes('contract') || textLower.includes('gig')) {
+          suggestedCategory = 'Freelance';
+        } else if (textLower.includes('dividend') || textLower.includes('interest') || textLower.includes('investment')) {
+          suggestedCategory = 'Investment';
+        } else if (textLower.includes('business') || textLower.includes('profit') || textLower.includes('revenue')) {
+          suggestedCategory = 'Business';
+        } else if (textLower.includes('gift') || textLower.includes('bonus') || textLower.includes('reward')) {
+          suggestedCategory = 'Gift';
+        } else if (textLower.includes('refund') || textLower.includes('return') || textLower.includes('reversal')) {
+          suggestedCategory = 'Refund';
+        }
+      } else {
+        // Expense categories
+        defaultCategories = [
+          'Food & Dining',
+          'Transportation', 
+          'Shopping',
+          'Entertainment',
+          'Healthcare',
+          'Utilities',
+          'Other'
+        ];
+        
+        // Simple keyword-based categorization for expenses
+        const textLower = text.toLowerCase();
+        suggestedCategory = 'Other';
+        
+        if (textLower.includes('food') || textLower.includes('restaurant') || textLower.includes('swiggy') || textLower.includes('zomato')) {
+          suggestedCategory = 'Food & Dining';
+        } else if (textLower.includes('uber') || textLower.includes('ola') || textLower.includes('transport')) {
+          suggestedCategory = 'Transportation';
+        } else if (textLower.includes('amazon') || textLower.includes('flipkart') || textLower.includes('shopping')) {
+          suggestedCategory = 'Shopping';
+        } else if (textLower.includes('netflix') || textLower.includes('movie') || textLower.includes('entertainment')) {
+          suggestedCategory = 'Entertainment';
+        } else if (textLower.includes('hospital') || textLower.includes('pharmacy') || textLower.includes('medical')) {
+          suggestedCategory = 'Healthcare';
+        } else if (textLower.includes('electricity') || textLower.includes('water') || textLower.includes('utility')) {
+          suggestedCategory = 'Utilities';
+        }
       }
 
       return res.json({
@@ -64,6 +101,7 @@ router.post('/categorize', requireClerkUser, [
     const mlResponse = await axios.post(`${process.env.ML_SERVICE_URL}/categorize`, {
       text,
       merchant,
+      type,
       userId: req.user._id
     }, {
       headers: {

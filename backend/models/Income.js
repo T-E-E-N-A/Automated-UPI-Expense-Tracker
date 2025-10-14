@@ -18,9 +18,12 @@ const incomeSchema = new mongoose.Schema({
     enum: [
       'Salary',
       'Freelance',
+      'Investment',
+      'Business',
+      'Gift',
+      'Refund',
       'Investment Returns',
       'Bonus',
-      'Gift',
       'Side Business',
       'Rental Income',
       'Dividends',
