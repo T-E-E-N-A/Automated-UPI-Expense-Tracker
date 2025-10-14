@@ -1,6 +1,7 @@
 import { createContext, useContext, useReducer, useEffect } from 'react';
 import { useUser } from '@clerk/clerk-react';
 import apiService from '../services/api';
+import { parseSMS, validateParsedSMS, formatForTransaction } from '../utils/smsParser';
 
 const initialState = {
   expenses: [],
@@ -8,6 +9,8 @@ const initialState = {
   sidebarOpen: false,
   loading: false,
   error: null,
+  mlProcessing: false,
+  mlResult: null,
 };
 
 const appReducer = (state, action) => {
@@ -50,6 +53,12 @@ const appReducer = (state, action) => {
         ...state,
         income: state.income.filter(income => income.id !== action.payload)
       };
+    case 'SET_ML_PROCESSING':
+      return { ...state, mlProcessing: action.payload };
+    case 'SET_ML_RESULT':
+      return { ...state, mlResult: action.payload };
+    case 'CLEAR_ML_RESULT':
+      return { ...state, mlResult: null };
     default:
       return state;
   }
@@ -170,6 +179,114 @@ export const AppProvider = ({ children }) => {
     }
   };
 
+  // ML Processing functions
+  const processSMSMessage = async (smsText) => {
+    try {
+      dispatch({ type: 'SET_ML_PROCESSING', payload: true });
+      dispatch({ type: 'SET_ERROR', payload: null });
+
+      // Parse SMS to extract basic information
+      const parsedData = parseSMS(smsText);
+      const validation = validateParsedSMS(parsedData);
+
+      if (!validation.isValid) {
+        throw new Error(`SMS parsing failed: ${validation.errors.join(', ')}`);
+      }
+
+      // Format for transaction creation
+      const transactionData = formatForTransaction(parsedData);
+      if (!transactionData) {
+        throw new Error('Could not format transaction data');
+      }
+
+      // Get ML categorization for both expenses and income
+      let mlCategorization = null;
+      try {
+        if (transactionData.type === 'expense') {
+          mlCategorization = await apiService.categorizeExpense(
+            smsText, 
+            transactionData.merchant, 
+            user
+          );
+        } else if (transactionData.type === 'income') {
+          // For income, we can use a similar categorization approach
+          mlCategorization = await apiService.categorizeIncome(
+            smsText, 
+            transactionData.source, 
+            user
+          );
+        }
+      } catch (mlError) {
+        console.warn('ML categorization failed, using default:', mlError);
+        // ML categorization failed, but we can still proceed with default category
+      }
+
+      // Combine parsed data with ML categorization
+      const result = {
+        ...transactionData,
+        parsedData,
+        mlCategorization,
+        originalSMS: smsText,
+        confidence: parsedData.confidence
+      };
+
+      dispatch({ type: 'SET_ML_RESULT', payload: result });
+      return result;
+
+    } catch (error) {
+      dispatch({ type: 'SET_ERROR', payload: error.message });
+      throw error;
+    } finally {
+      dispatch({ type: 'SET_ML_PROCESSING', payload: false });
+    }
+  };
+
+  const createTransactionFromML = async (mlResult, userConfirmation = {}) => {
+    try {
+      dispatch({ type: 'SET_LOADING', payload: true });
+
+      const transactionData = {
+        amount: mlResult.amount,
+        date: mlResult.date,
+        description: mlResult.description,
+        ...userConfirmation // User can override any field
+      };
+
+      let newTransaction;
+      if (mlResult.type === 'expense') {
+        newTransaction = await addExpense({
+          ...transactionData,
+          category: userConfirmation.category || 
+                   (mlResult.mlCategorization?.category) || 
+                   'Other',
+          merchant: userConfirmation.merchant || mlResult.merchant || 'Unknown'
+        });
+      } else {
+        newTransaction = await addIncome({
+          ...transactionData,
+          source: userConfirmation.sourceType || 
+                 (mlResult.mlCategorization?.category) || 
+                 'Other',
+          notes: userConfirmation.source || mlResult.merchant || 'Unknown'
+        });
+      }
+
+      // Clear ML result after successful creation
+      dispatch({ type: 'CLEAR_ML_RESULT' });
+      return newTransaction;
+
+    } catch (error) {
+      dispatch({ type: 'SET_ERROR', payload: error.message });
+      throw error;
+    } finally {
+      dispatch({ type: 'SET_LOADING', payload: false });
+    }
+  };
+
+  const clearMLResult = () => {
+    dispatch({ type: 'CLEAR_ML_RESULT' });
+  };
+
   // Computed values
   const getTotalExpenses = () => {
     return state.expenses.reduce((total, expense) => total + expense.amount, 0);
@@ -228,6 +345,9 @@ export const AppProvider = ({ children }) => {
     getExpensesByCategory,
     getLast30DaysExpenses,
     getLast30DaysIncome,
+    processSMSMessage,
+    createTransactionFromML,
+    clearMLResult,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

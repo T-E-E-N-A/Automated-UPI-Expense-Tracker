@@ -1,10 +1,11 @@
-import { Link } from 'react-router-dom';
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
-import ExpenseChart from './charts/ExpenseChart';
-import IncomeChart from './charts/IncomeChart';
 import AddExpenseForm from './AddExpenseForm';
 import AddIncomeForm from './AddIncomeForm';
+import ExpenseChart from './charts/ExpenseChart';
+import IncomeChart from './charts/IncomeChart';
+import MLConfirmationModal from './MLConfirmationModal';
 
 const Dashboard = () => {
   const {
@@ -12,13 +13,19 @@ const Dashboard = () => {
     getTotalIncome,
     getRecentExpenses,
     getRecentIncome,
-    getExpensesByCategory
+    getExpensesByCategory,
+    processSMSMessage,
+    createTransactionFromML,
+    clearMLResult,
+    mlProcessing,
+    mlResult,
+    error
   } = useApp();
 
   const [showAddExpense, setShowAddExpense] = useState(false);
   const [showAddIncome, setShowAddIncome] = useState(false);
   const [bankMessage, setBankMessage] = useState('');
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [showMLModal, setShowMLModal] = useState(false);
 
   const totalExpenses = getTotalExpenses();
   const totalIncome = getTotalIncome();
@@ -44,19 +51,31 @@ const Dashboard = () => {
   const handleProcessMessage = async () => {
     if (!bankMessage.trim()) return;
     
-    setIsProcessing(true);
     try {
-      // TODO: Implement ML processing API call
-      console.log('Processing message:', bankMessage);
-      // Simulate processing delay
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      // Clear the message after processing
-      setBankMessage('');
+      const result = await processSMSMessage(bankMessage);
+      if (result) {
+        setShowMLModal(true);
+        setBankMessage(''); // Clear the input after successful processing
+      }
     } catch (error) {
       console.error('Error processing message:', error);
-    } finally {
-      setIsProcessing(false);
+      // Error is already handled in the context
     }
+  };
+
+  const handleMLConfirm = async (formData) => {
+    try {
+      await createTransactionFromML(mlResult, formData);
+      setShowMLModal(false);
+    } catch (error) {
+      console.error('Error creating transaction:', error);
+      throw error; // Re-throw to show error in modal
+    }
+  };
+
+  const handleMLCancel = () => {
+    clearMLResult();
+    setShowMLModal(false);
   };
 
   return (
@@ -131,10 +150,20 @@ const Dashboard = () => {
               onChange={(e) => setBankMessage(e.target.value)}
               placeholder="Paste your bank SMS message here...&#10;&#10;Example:&#10;Rs.500.00 debited from A/c **1234 on 15-Dec-23 at 2:30 PM. UPI/123456789012/PAYTM/UPI. Avl Bal Rs.15,000.00"
               className="w-full h-32 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none text-sm"
-              disabled={isProcessing}
+              disabled={mlProcessing}
             />
           </div>
           
+          {/* Error Display */}
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+              <div className="flex items-center space-x-2">
+                <span className="text-red-500">⚠️</span>
+                <span className="text-sm text-red-700">{error}</span>
+              </div>
+            </div>
+          )}
+
           <div className="flex items-center justify-between">
             <div className="text-xs text-gray-500">
               {bankMessage.length > 0 && `${bankMessage.length} characters`}
@@ -142,17 +171,17 @@ const Dashboard = () => {
             <div className="flex space-x-3">
               <button
                 onClick={() => setBankMessage('')}
-                disabled={isProcessing || !bankMessage.trim()}
+                disabled={mlProcessing || !bankMessage.trim()}
                 className="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 Clear
               </button>
               <button
                 onClick={handleProcessMessage}
-                disabled={isProcessing || !bankMessage.trim()}
+                disabled={mlProcessing || !bankMessage.trim()}
                 className="px-6 py-2 text-sm font-medium text-white bg-purple-600 rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
               >
-                {isProcessing ? (
+                {mlProcessing ? (
                   <>
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                     <span>Processing...</span>
@@ -287,6 +316,15 @@ const Dashboard = () => {
       {showAddIncome && (
         <AddIncomeForm onClose={() => setShowAddIncome(false)} />
       )}
+      
+      {/* ML Confirmation Modal */}
+      <MLConfirmationModal
+        isOpen={showMLModal}
+        onClose={() => setShowMLModal(false)}
+        mlResult={mlResult}
+        onConfirm={handleMLConfirm}
+        onCancel={handleMLCancel}
+      />
     </div>
   );
 };

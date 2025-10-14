@@ -185,6 +185,36 @@ class ApiService {
     }, user);
     return res.user || res;
   }
+
+  // ML endpoints
+  async categorizeExpense(text, merchant = null, user = null) {
+    const res = await this.request('/ml/categorize', {
+      method: 'POST',
+      body: JSON.stringify({ text, merchant, type: 'expense' })
+    }, user);
+    return res;
+  }
+
+  async categorizeIncome(text, source = null, user = null) {
+    const res = await this.request('/ml/categorize', {
+      method: 'POST',
+      body: JSON.stringify({ text, merchant: source, type: 'income' })
+    }, user);
+    return res;
+  }
+
+  async getMLInsights(user = null) {
+    const res = await this.request('/ml/insights', {}, user);
+    return res;
+  }
+
+  async getMLPrediction(timeframe = 'month', user = null) {
+    const res = await this.request('/ml/predict', {
+      method: 'POST',
+      body: JSON.stringify({ timeframe })
+    }, user);
+    return res;
+  }
 }
 
 export default new ApiService();
