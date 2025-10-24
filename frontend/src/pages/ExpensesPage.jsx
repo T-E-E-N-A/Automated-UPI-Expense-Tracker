@@ -1,8 +1,15 @@
+import { useState } from 'react';
+import FilterPanel from '../components/FilterPanel';
 import { useApp } from '../context/AppContext';
 
 const ExpensesPage = () => {
-  const { getLast30DaysExpenses } = useApp();
-  const expenses = getLast30DaysExpenses();
+  const { filterExpenses, getUniqueCategories, getLast30DaysExpenses } = useApp();
+  const [filters, setFilters] = useState({});
+  
+  // Get all expenses and apply filters
+  const allExpenses = getLast30DaysExpenses();
+  const filteredExpenses = filterExpenses(filters);
+  const categories = getUniqueCategories();
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-IN', {
@@ -57,10 +64,17 @@ const ExpensesPage = () => {
       <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 mb-6">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-gray-800 mb-1">Total Expenses (30 days)</h2>
+            <h2 className="text-lg font-semibold text-gray-800 mb-1">
+              {Object.values(filters).some(v => v !== '') ? 'Filtered Expenses' : 'Total Expenses (30 days)'}
+            </h2>
             <p className="text-3xl font-bold text-red-600">
-              {formatCurrency(expenses.reduce((total, expense) => total + expense.amount, 0))}
+              {formatCurrency(filteredExpenses.reduce((total, expense) => total + expense.amount, 0))}
             </p>
+            {Object.values(filters).some(v => v !== '') && (
+              <p className="text-sm text-gray-500 mt-1">
+                Showing {filteredExpenses.length} of {allExpenses.length} expenses
+              </p>
+            )}
           </div>
           <div className="w-16 h-16 bg-red-100 rounded-lg flex items-center justify-center">
             <span className="text-3xl">💸</span>
@@ -68,19 +82,37 @@ const ExpensesPage = () => {
         </div>
       </div>
 
+      {/* Filter Panel */}
+      <FilterPanel
+        filters={filters}
+        onFiltersChange={setFilters}
+        categories={categories}
+        showCategoryFilter={true}
+        showSourceFilter={false}
+        showDateFilter={true}
+        showAmountFilter={true}
+        title="Filter Expenses"
+      />
+
       {/* Expenses Table */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-200">
           <h2 className="text-xl font-semibold text-gray-800">Expense Details</h2>
         </div>
         
-        {expenses.length === 0 ? (
+        {filteredExpenses.length === 0 ? (
           <div className="p-8 text-center">
             <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <span className="text-2xl">📝</span>
             </div>
-            <h3 className="text-lg font-medium text-gray-800 mb-2">No expenses found</h3>
-            <p className="text-gray-500">You haven't recorded any expenses in the last 30 days.</p>
+            <h3 className="text-lg font-medium text-gray-800 mb-2">
+              {Object.values(filters).some(v => v !== '') ? 'No expenses match your filters' : 'No expenses found'}
+            </h3>
+            <p className="text-gray-500">
+              {Object.values(filters).some(v => v !== '') 
+                ? 'Try adjusting your filter criteria to see more results.' 
+                : 'You haven\'t recorded any expenses in the last 30 days.'}
+            </p>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -102,7 +134,7 @@ const ExpensesPage = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {expenses.map((expense) => (
+                {filteredExpenses.map((expense) => (
                   <tr key={expense.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {formatDate(expense.date)}
