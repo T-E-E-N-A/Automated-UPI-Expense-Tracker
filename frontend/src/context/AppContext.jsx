@@ -1,7 +1,7 @@
-import { createContext, useContext, useReducer, useEffect } from 'react';
 import { useUser } from '@clerk/clerk-react';
+import { createContext, useContext, useEffect, useReducer } from 'react';
 import apiService from '../services/api';
-import { parseSMS, validateParsedSMS, formatForTransaction } from '../utils/smsParser';
+import { formatForTransaction, parseSMS, validateParsedSMS } from '../utils/smsParser';
 
 const initialState = {
   expenses: [],
@@ -327,6 +327,93 @@ export const AppProvider = ({ children }) => {
     return state.income.filter(income => new Date(income.date) >= thirtyDaysAgo);
   };
 
+  // Filtering helper functions
+  const filterExpenses = (filters = {}) => {
+    let filteredExpenses = [...state.expenses];
+
+    // Filter by category
+    if (filters.category) {
+      filteredExpenses = filteredExpenses.filter(expense => 
+        expense.category === filters.category
+      );
+    }
+
+    // Filter by date range
+    if (filters.startDate) {
+      filteredExpenses = filteredExpenses.filter(expense => 
+        new Date(expense.date) >= new Date(filters.startDate)
+      );
+    }
+    if (filters.endDate) {
+      filteredExpenses = filteredExpenses.filter(expense => 
+        new Date(expense.date) <= new Date(filters.endDate)
+      );
+    }
+
+    // Filter by amount range
+    if (filters.minAmount) {
+      filteredExpenses = filteredExpenses.filter(expense => 
+        expense.amount >= parseFloat(filters.minAmount)
+      );
+    }
+    if (filters.maxAmount) {
+      filteredExpenses = filteredExpenses.filter(expense => 
+        expense.amount <= parseFloat(filters.maxAmount)
+      );
+    }
+
+    // Sort by date (newest first)
+    return filteredExpenses.sort((a, b) => new Date(b.date) - new Date(a.date));
+  };
+
+  const filterIncome = (filters = {}) => {
+    let filteredIncome = [...state.income];
+
+    // Filter by source
+    if (filters.source) {
+      filteredIncome = filteredIncome.filter(income => 
+        income.source === filters.source
+      );
+    }
+
+    // Filter by date range
+    if (filters.startDate) {
+      filteredIncome = filteredIncome.filter(income => 
+        new Date(income.date) >= new Date(filters.startDate)
+      );
+    }
+    if (filters.endDate) {
+      filteredIncome = filteredIncome.filter(income => 
+        new Date(income.date) <= new Date(filters.endDate)
+      );
+    }
+
+    // Filter by amount range
+    if (filters.minAmount) {
+      filteredIncome = filteredIncome.filter(income => 
+        income.amount >= parseFloat(filters.minAmount)
+      );
+    }
+    if (filters.maxAmount) {
+      filteredIncome = filteredIncome.filter(income => 
+        income.amount <= parseFloat(filters.maxAmount)
+      );
+    }
+
+    // Sort by date (newest first)
+    return filteredIncome.sort((a, b) => new Date(b.date) - new Date(a.date));
+  };
+
+  const getUniqueCategories = () => {
+    const categories = [...new Set(state.expenses.map(expense => expense.category))];
+    return categories.sort();
+  };
+
+  const getUniqueSources = () => {
+    const sources = [...new Set(state.income.map(income => income.source))];
+    return sources.sort();
+  };
+
   const value = {
     ...state,
     toggleSidebar,
@@ -345,6 +432,10 @@ export const AppProvider = ({ children }) => {
     getExpensesByCategory,
     getLast30DaysExpenses,
     getLast30DaysIncome,
+    filterExpenses,
+    filterIncome,
+    getUniqueCategories,
+    getUniqueSources,
     processSMSMessage,
     createTransactionFromML,
     clearMLResult,
