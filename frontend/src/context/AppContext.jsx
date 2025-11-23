@@ -1,5 +1,5 @@
 import { useUser } from '@clerk/clerk-react';
-import { createContext, useContext, useEffect, useReducer } from 'react';
+import { createContext, useContext, useEffect, useReducer, useCallback } from 'react';
 import apiService from '../services/api';
 import { formatForTransaction, parseSMS, validateParsedSMS } from '../utils/smsParser';
 
@@ -70,20 +70,12 @@ export const AppProvider = ({ children }) => {
   const [state, dispatch] = useReducer(appReducer, initialState);
   const { user } = useUser();
 
-  // Load data on component mount
-  useEffect(() => {
-    if (user) {
-      loadExpenses();
-      loadIncome();
-    }
-  }, [user]);
-
   const toggleSidebar = () => {
     dispatch({ type: 'TOGGLE_SIDEBAR' });
   };
 
   // API calls
-  const loadExpenses = async () => {
+  const loadExpenses = useCallback(async () => {
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
       const expenses = await apiService.getExpenses({}, user);
@@ -94,9 +86,9 @@ export const AppProvider = ({ children }) => {
     } finally {
       dispatch({ type: 'SET_LOADING', payload: false });
     }
-  };
+  }, [user]);
 
-  const loadIncome = async () => {
+  const loadIncome = useCallback(async () => {
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
       const income = await apiService.getIncome({}, user);
@@ -107,7 +99,15 @@ export const AppProvider = ({ children }) => {
     } finally {
       dispatch({ type: 'SET_LOADING', payload: false });
     }
-  };
+  }, [user]);
+
+  // Load data on component mount
+  useEffect(() => {
+    if (user) {
+      loadExpenses();
+      loadIncome();
+    }
+  }, [user, loadExpenses, loadIncome]);
 
   const addExpense = async (expenseData) => {
     try {
@@ -139,7 +139,7 @@ export const AppProvider = ({ children }) => {
 
   const updateExpense = async (id, expenseData) => {
     try {
-      const updatedExpense = await apiService.updateExpense(id, expenseData);
+      const updatedExpense = await apiService.updateExpense(id, expenseData, user);
       dispatch({ type: 'UPDATE_EXPENSE', payload: updatedExpense });
       return updatedExpense;
     } catch (error) {
@@ -150,7 +150,7 @@ export const AppProvider = ({ children }) => {
 
   const updateIncome = async (id, incomeData) => {
     try {
-      const updatedIncome = await apiService.updateIncome(id, incomeData);
+      const updatedIncome = await apiService.updateIncome(id, incomeData, user);
       dispatch({ type: 'UPDATE_INCOME', payload: updatedIncome });
       return updatedIncome;
     } catch (error) {
@@ -161,7 +161,7 @@ export const AppProvider = ({ children }) => {
 
   const deleteExpense = async (id) => {
     try {
-      await apiService.deleteExpense(id);
+      await apiService.deleteExpense(id, user);
       dispatch({ type: 'DELETE_EXPENSE', payload: id });
     } catch (error) {
       dispatch({ type: 'SET_ERROR', payload: error.message });
@@ -171,7 +171,7 @@ export const AppProvider = ({ children }) => {
 
   const deleteIncome = async (id) => {
     try {
-      await apiService.deleteIncome(id);
+      await apiService.deleteIncome(id, user);
       dispatch({ type: 'DELETE_INCOME', payload: id });
     } catch (error) {
       dispatch({ type: 'SET_ERROR', payload: error.message });
@@ -444,6 +444,7 @@ export const AppProvider = ({ children }) => {
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useApp = () => {
   const context = useContext(AppContext);
   if (!context) {

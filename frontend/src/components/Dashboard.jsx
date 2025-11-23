@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
+import { useUser } from '@clerk/clerk-react';
+import api from '../services/api';
 import AddExpenseForm from './AddExpenseForm';
 import AddIncomeForm from './AddIncomeForm';
 import ExpenseChart from './charts/ExpenseChart';
@@ -22,10 +24,43 @@ const Dashboard = () => {
     error
   } = useApp();
 
+  const { user } = useUser();
   const [showAddExpense, setShowAddExpense] = useState(false);
   const [showAddIncome, setShowAddIncome] = useState(false);
   const [bankMessage, setBankMessage] = useState('');
   const [showMLModal, setShowMLModal] = useState(false);
+  const [alerts, setAlerts] = useState([]);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const notificationRef = useRef(null);
+
+  useEffect(() => {
+    const fetchAlerts = async () => {
+      try {
+        const res = await api.getNotifications(user);
+        setAlerts(res.alerts || []);
+      } catch (e) {
+        // ignore errors
+      }
+    };
+    if (user) fetchAlerts();
+  }, [user]);
+
+  // Close notification dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (notificationRef.current && !notificationRef.current.contains(event.target)) {
+        setNotificationsOpen(false);
+      }
+    };
+
+    if (notificationsOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [notificationsOpen]);
 
   const totalExpenses = getTotalExpenses();
   const totalIncome = getTotalIncome();
@@ -82,8 +117,47 @@ const Dashboard = () => {
     <div className="p-6 space-y-6">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-800 mb-2">Dashboard</h1>
-        <p className="text-gray-600">Welcome back! Here's your financial overview.</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-800 mb-2">Dashboard</h1>
+            <p className="text-gray-600">Welcome back! Here's your financial overview.</p>
+          </div>
+          {/* Notification Bell - Only show on laptop screens (when Header is hidden) */}
+          <div ref={notificationRef} className="hidden lg:block relative">
+            <button
+              onClick={() => setNotificationsOpen(!notificationsOpen)}
+              className="relative p-2 rounded-lg hover:bg-gray-100 transition-colors"
+              aria-label="Notifications"
+            >
+              <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+              </svg>
+              {alerts.length > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-medium leading-none text-white bg-red-600 rounded-full">
+                  {alerts.length}
+                </span>
+              )}
+            </button>
+            {notificationsOpen && (
+              <div className="absolute right-0 mt-2 w-80 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
+                <div className="p-3 border-b border-gray-100 font-medium text-gray-700">Notifications</div>
+                <div className="max-h-80 overflow-auto">
+                  {alerts.length === 0 ? (
+                    <div className="p-4 text-gray-500 text-sm">No notifications</div>
+                  ) : (
+                    alerts.map((a, i) => (
+                      <div key={i} className="p-3 border-b border-gray-100 hover:bg-gray-50">
+                        <div className="text-sm font-medium text-gray-800">{a.title || a.type}</div>
+                        <div className="text-sm text-gray-600">{a.message}</div>
+                        {a.action && <div className="text-xs text-gray-400 mt-1">{a.action}</div>}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Summary Cards */}

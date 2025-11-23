@@ -43,15 +43,6 @@ const incomeSchema = new mongoose.Schema({
     trim: true,
     maxlength: [500, 'Notes cannot exceed 500 characters']
   },
-  isRecurring: {
-    type: Boolean,
-    default: false
-  },
-  recurringFrequency: {
-    type: String,
-    enum: ['weekly', 'monthly', 'quarterly', 'yearly'],
-    default: null
-  },
   tags: [{
     type: String,
     trim: true,

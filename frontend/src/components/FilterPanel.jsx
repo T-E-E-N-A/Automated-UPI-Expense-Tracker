@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import apiService from '../services/api';
+import { useUser } from '@clerk/clerk-react';
 
 const FilterPanel = ({ 
   filters, 
@@ -9,9 +11,12 @@ const FilterPanel = ({
   showSourceFilter = true,
   showDateFilter = true,
   showAmountFilter = true,
-  title = "Filters"
+  title = "Filters",
+  reportType = 'both' // 'expenses', 'income', or 'both'
 }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+  const { user } = useUser();
 
   const handleFilterChange = (filterType, value) => {
     onFiltersChange({
@@ -35,12 +40,104 @@ const FilterPanel = ({
     return Object.values(filters).some(value => value !== '');
   };
 
+  const buildDownloadParams = () => {
+    const params = {};
+    if (filters.startDate) params.startDate = filters.startDate;
+    if (filters.endDate) params.endDate = filters.endDate;
+    if (filters.category) params.category = filters.category;
+    if (filters.source) params.source = filters.source;
+    if (filters.minAmount) params.minAmount = filters.minAmount;
+    if (filters.maxAmount) params.maxAmount = filters.maxAmount;
+    return params;
+  };
+
+  const handleDownloadExpenses = async () => {
+    if (!user) return;
+    try {
+      setDownloading(true);
+      await apiService.downloadExpensesReport(buildDownloadParams(), user);
+    } catch (error) {
+      console.error('Failed to download expenses report:', error);
+      alert('Failed to download expenses report. Please try again.');
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  const handleDownloadIncome = async () => {
+    if (!user) return;
+    try {
+      setDownloading(true);
+      await apiService.downloadIncomeReport(buildDownloadParams(), user);
+    } catch (error) {
+      console.error('Failed to download income report:', error);
+      alert('Failed to download income report. Please try again.');
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  const handleDownloadCombined = async () => {
+    if (!user) return;
+    try {
+      setDownloading(true);
+      await apiService.downloadCombinedReport(buildDownloadParams(), user);
+    } catch (error) {
+      console.error('Failed to download combined report:', error);
+      alert('Failed to download combined report. Please try again.');
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 mb-6">
       <div className="px-6 py-4 border-b border-gray-200">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold text-gray-800">{title}</h3>
           <div className="flex items-center space-x-2">
+            {/* Download Report Buttons */}
+            <div className="flex items-center space-x-2 mr-4 flex-wrap gap-2">
+              {(reportType === 'expenses' || reportType === 'both') && (
+                <button
+                  onClick={handleDownloadExpenses}
+                  disabled={downloading}
+                  className="px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1"
+                  title="Download Expenses Report"
+                >
+                  <span>📥</span>
+                  <span className="hidden sm:inline">Expenses</span>
+                  <span className="sm:hidden">Exp</span>
+                </button>
+              )}
+              {(reportType === 'income' || reportType === 'both') && (
+                <button
+                  onClick={handleDownloadIncome}
+                  disabled={downloading}
+                  className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1"
+                  title="Download Income Report"
+                >
+                  <span>📥</span>
+                  <span className="hidden sm:inline">Income</span>
+                  <span className="sm:hidden">Inc</span>
+                </button>
+              )}
+              {reportType === 'both' && (
+                <button
+                  onClick={handleDownloadCombined}
+                  disabled={downloading}
+                  className="px-3 py-1.5 text-sm bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1"
+                  title="Download Combined Report"
+                >
+                  <span>📥</span>
+                  <span className="hidden sm:inline">Combined</span>
+                  <span className="sm:hidden">All</span>
+                </button>
+              )}
+              {downloading && (
+                <span className="text-sm text-gray-500">Downloading...</span>
+              )}
+            </div>
             {hasActiveFilters() && (
               <button
                 onClick={clearFilters}

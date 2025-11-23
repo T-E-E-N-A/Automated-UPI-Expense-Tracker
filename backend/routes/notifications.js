@@ -1,6 +1,7 @@
 import express from 'express';
 import Budget from '../models/Budget.js';
 import Expense from '../models/Expense.js';
+import Notification from '../models/Notification.js';
 import { requireClerkUser } from '../middleware/clerkAuth.js';
 import { body } from 'express-validator';
 
@@ -94,7 +95,8 @@ router.get('/alerts', requireClerkUser, async (req, res) => {
         totalAlerts: alerts.length,
         criticalAlerts: alerts.filter(a => a.type === 'critical').length,
         warningAlerts: alerts.filter(a => a.type === 'warning').length,
-        infoAlerts: alerts.filter(a => a.type === 'info').length
+        infoAlerts: alerts.filter(a => a.type === 'info').length,
+        successAlerts: alerts.filter(a => a.type === 'success').length
       }
     });
 
@@ -290,6 +292,113 @@ router.post('/mark-read', requireClerkUser, [
     res.status(500).json({
       success: false,
       message: 'Failed to mark alerts as read',
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+    });
+  }
+});
+
+// @route   GET /api/notifications
+// @desc    Get all notifications for user
+// @access  Private
+router.get('/', requireClerkUser, async (req, res) => {
+  try {
+    const { page = 1, limit = 20, unreadOnly = false } = req.query;
+    const skip = (page - 1) * limit;
+
+    const query = { userId: req.user._id };
+    if (unreadOnly === 'true') {
+      query.isRead = false;
+    }
+
+    const notifications = await Notification.find(query)
+      .sort({ createdAt: -1 })
+      .limit(parseInt(limit))
+      .skip(skip)
+      .select('-userId');
+
+    const totalCount = await Notification.countDocuments(query);
+    const unreadCount = await Notification.getUnreadCount(req.user._id);
+
+    res.json({
+      success: true,
+      notifications,
+      pagination: {
+        currentPage: parseInt(page),
+        totalPages: Math.ceil(totalCount / limit),
+        totalCount,
+        unreadCount
+      }
+    });
+
+  } catch (error) {
+    console.error('Get notifications error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get notifications',
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+    });
+  }
+});
+
+// @route   PUT /api/notifications/:id/read
+// @desc    Mark notification as read
+// @access  Private
+router.put('/:id/read', requireClerkUser, async (req, res) => {
+  try {
+    const notification = await Notification.findOne({
+      _id: req.params.id,
+      userId: req.user._id
+    });
+
+    if (!notification) {
+      return res.status(404).json({
+        success: false,
+        message: 'Notification not found'
+      });
+    }
+
+    await notification.markAsRead();
+
+    res.json({
+      success: true,
+      message: 'Notification marked as read',
+      notification
+    });
+
+  } catch (error) {
+    console.error('Mark notification as read error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to mark notification as read',
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+    });
+  }
+});
+
+// @route   PUT /api/notifications/mark-all-read
+// @desc    Mark all notifications as read
+// @access  Private
+router.put('/mark-all-read', requireClerkUser, async (req, res) => {
+  try {
+    const result = await Notification.updateMany(
+      { userId: req.user._id, isRead: false },
+      { 
+        isRead: true,
+        readAt: new Date()
+      }
+    );
+
+    res.json({
+      success: true,
+      message: 'All notifications marked as read',
+      updatedCount: result.modifiedCount
+    });
+
+  } catch (error) {
+    console.error('Mark all notifications as read error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to mark all notifications as read',
       error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
     });
   }

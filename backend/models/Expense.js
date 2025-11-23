@@ -56,15 +56,6 @@ const expenseSchema = new mongoose.Schema({
     enum: ['UPI', 'Card', 'Cash', 'Bank Transfer', 'Other'],
     default: 'UPI'
   },
-  isRecurring: {
-    type: Boolean,
-    default: false
-  },
-  recurringFrequency: {
-    type: String,
-    enum: ['daily', 'weekly', 'monthly', 'yearly'],
-    default: null
-  },
   tags: [{
     type: String,
     trim: true,
