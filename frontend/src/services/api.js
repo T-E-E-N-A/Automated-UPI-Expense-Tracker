@@ -92,18 +92,18 @@ class ApiService {
     return res.expense || res;
   }
 
-  async updateExpense(id, expenseData) {
+  async updateExpense(id, expenseData, user = null) {
     const res = await this.request(`/expenses/${id}`, {
       method: 'PUT',
       body: JSON.stringify(expenseData)
-    });
+    }, user);
     return res.expense || res;
   }
 
-  async deleteExpense(id) {
+  async deleteExpense(id, user = null) {
     return this.request(`/expenses/${id}`, {
       method: 'DELETE'
-    });
+    }, user);
   }
 
   // Income endpoints
@@ -121,18 +121,18 @@ class ApiService {
     return res.income || res;
   }
 
-  async updateIncome(id, incomeData) {
+  async updateIncome(id, incomeData, user = null) {
     const res = await this.request(`/income/${id}`, {
       method: 'PUT',
       body: JSON.stringify(incomeData)
-    });
+    }, user);
     return res.income || res;
   }
 
-  async deleteIncome(id) {
+  async deleteIncome(id, user = null) {
     return this.request(`/income/${id}`, {
       method: 'DELETE'
-    });
+    }, user);
   }
 
   // Dashboard endpoints
@@ -184,6 +184,139 @@ class ApiService {
       body: JSON.stringify(profileData)
     }, user);
     return res.user || res;
+  }
+
+  // ML endpoints
+  async categorizeExpense(text, merchant = null, user = null) {
+    const res = await this.request('/ml/categorize', {
+      method: 'POST',
+      body: JSON.stringify({ text, merchant, type: 'expense' })
+    }, user);
+    return res;
+  }
+
+  async categorizeIncome(text, source = null, user = null) {
+    const res = await this.request('/ml/categorize', {
+      method: 'POST',
+      body: JSON.stringify({ text, merchant: source, type: 'income' })
+    }, user);
+    return res;
+  }
+
+  async getMLInsights(user = null) {
+    const res = await this.request('/ml/insights', {}, user);
+    return res;
+  }
+
+  async getMLPrediction(timeframe = 'month', user = null) {
+    const res = await this.request('/ml/predict', {
+      method: 'POST',
+      body: JSON.stringify({ timeframe })
+    }, user);
+    return res;
+  }
+
+  // Download report methods
+  async downloadExpensesReport(params = {}, user = null) {
+    const queryString = new URLSearchParams(params).toString();
+    const url = `${this.baseURL}/reports/download/expenses${queryString ? `?${queryString}` : ''}`;
+    
+    const headers = { ...this.getAuthHeaders() };
+    if (user) {
+      headers['X-Clerk-Id'] = user.id;
+      if (user.primaryEmailAddress?.emailAddress) {
+        headers['X-Clerk-Email'] = user.primaryEmailAddress.emailAddress;
+      }
+    }
+    delete headers['Content-Type']; // Let browser set content type for download
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to download report');
+    }
+
+    const blob = await response.blob();
+    const downloadUrl = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.download = `expenses-report-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(downloadUrl);
+  }
+
+  async downloadIncomeReport(params = {}, user = null) {
+    const queryString = new URLSearchParams(params).toString();
+    const url = `${this.baseURL}/reports/download/income${queryString ? `?${queryString}` : ''}`;
+    
+    const headers = { ...this.getAuthHeaders() };
+    if (user) {
+      headers['X-Clerk-Id'] = user.id;
+      if (user.primaryEmailAddress?.emailAddress) {
+        headers['X-Clerk-Email'] = user.primaryEmailAddress.emailAddress;
+      }
+    }
+    delete headers['Content-Type']; // Let browser set content type for download
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to download report');
+    }
+
+    const blob = await response.blob();
+    const downloadUrl = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.download = `income-report-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(downloadUrl);
+  }
+
+  async downloadCombinedReport(params = {}, user = null) {
+    const queryString = new URLSearchParams(params).toString();
+    const url = `${this.baseURL}/reports/download/combined${queryString ? `?${queryString}` : ''}`;
+    
+    const headers = { ...this.getAuthHeaders() };
+    if (user) {
+      headers['X-Clerk-Id'] = user.id;
+      if (user.primaryEmailAddress?.emailAddress) {
+        headers['X-Clerk-Email'] = user.primaryEmailAddress.emailAddress;
+      }
+    }
+    delete headers['Content-Type']; // Let browser set content type for download
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to download report');
+    }
+
+    const blob = await response.blob();
+    const downloadUrl = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.download = `combined-report-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(downloadUrl);
   }
 }
 

@@ -1,8 +1,32 @@
+import { useState } from 'react';
+import FilterPanel from '../components/FilterPanel';
 import { useApp } from '../context/AppContext';
+import AddIncomeForm from '../components/AddIncomeForm';
 
 const IncomePage = () => {
-  const { getLast30DaysIncome } = useApp();
-  const income = getLast30DaysIncome();
+  const { filterIncome, getUniqueSources, getLast30DaysIncome, loadIncome, deleteIncome } = useApp();
+  const [filters, setFilters] = useState({});
+  const [editingIncome, setEditingIncome] = useState(null);
+  const [deletingIncomeId, setDeletingIncomeId] = useState(null);
+
+  const handleDeleteIncome = async (income) => {
+    if (!window.confirm(`Are you sure you want to delete this income of ${formatCurrency(income.amount)}?`)) {
+      return;
+    }
+
+    try {
+      const incomeId = income.id || income._id;
+      await deleteIncome(incomeId);
+      loadIncome();
+    } catch (error) {
+      alert('Failed to delete income: ' + error.message);
+    }
+  };
+  
+  // Get all income and apply filters
+  const allIncome = getLast30DaysIncome();
+  const filteredIncome = filterIncome(filters);
+  const sources = getUniqueSources();
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-IN', {
@@ -57,10 +81,17 @@ const IncomePage = () => {
       <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 mb-6">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-gray-800 mb-1">Total Income (30 days)</h2>
+            <h2 className="text-lg font-semibold text-gray-800 mb-1">
+              {Object.values(filters).some(v => v !== '') ? 'Filtered Income' : 'Total Income (30 days)'}
+            </h2>
             <p className="text-3xl font-bold text-green-600">
-              {formatCurrency(income.reduce((total, incomeItem) => total + incomeItem.amount, 0))}
+              {formatCurrency(filteredIncome.reduce((total, incomeItem) => total + incomeItem.amount, 0))}
             </p>
+            {Object.values(filters).some(v => v !== '') && (
+              <p className="text-sm text-gray-500 mt-1">
+                Showing {filteredIncome.length} of {allIncome.length} income entries
+              </p>
+            )}
           </div>
           <div className="w-16 h-16 bg-green-100 rounded-lg flex items-center justify-center">
             <span className="text-3xl">💰</span>
@@ -68,19 +99,38 @@ const IncomePage = () => {
         </div>
       </div>
 
+      {/* Filter Panel */}
+      <FilterPanel
+        filters={filters}
+        onFiltersChange={setFilters}
+        sources={sources}
+        showCategoryFilter={false}
+        showSourceFilter={true}
+        showDateFilter={true}
+        showAmountFilter={true}
+        title="Filter Income"
+        reportType="both"
+      />
+
       {/* Income Table */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-200">
           <h2 className="text-xl font-semibold text-gray-800">Income Details</h2>
         </div>
         
-        {income.length === 0 ? (
+        {filteredIncome.length === 0 ? (
           <div className="p-8 text-center">
             <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <span className="text-2xl">💰</span>
             </div>
-            <h3 className="text-lg font-medium text-gray-800 mb-2">No income found</h3>
-            <p className="text-gray-500">You haven't recorded any income in the last 30 days.</p>
+            <h3 className="text-lg font-medium text-gray-800 mb-2">
+              {Object.values(filters).some(v => v !== '') ? 'No income matches your filters' : 'No income found'}
+            </h3>
+            <p className="text-gray-500">
+              {Object.values(filters).some(v => v !== '') 
+                ? 'Try adjusting your filter criteria to see more results.' 
+                : 'You haven\'t recorded any income in the last 30 days.'}
+            </p>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -96,11 +146,14 @@ const IncomePage = () => {
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Amount
                   </th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {income.map((incomeItem) => (
-                  <tr key={incomeItem.id} className="hover:bg-gray-50">
+                {filteredIncome.map((incomeItem) => (
+                  <tr key={incomeItem.id || incomeItem._id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {formatDate(incomeItem.date)}
                     </td>
@@ -113,6 +166,29 @@ const IncomePage = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-green-600 text-right">
                       +{formatCurrency(incomeItem.amount)}
                     </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <div className="flex items-center justify-end space-x-2">
+                        <button
+                          onClick={() => setEditingIncome(incomeItem)}
+                          className="text-blue-600 hover:text-blue-900 transition-colors p-1 rounded hover:bg-blue-50"
+                          title="Edit income"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={() => handleDeleteIncome(incomeItem)}
+                          disabled={deletingIncomeId === (incomeItem.id || incomeItem._id)}
+                          className="text-red-600 hover:text-red-900 transition-colors p-1 rounded hover:bg-red-50 disabled:opacity-50"
+                          title="Delete income"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -120,6 +196,17 @@ const IncomePage = () => {
           </div>
         )}
       </div>
+
+      {/* Edit Income Modal */}
+      {editingIncome && (
+        <AddIncomeForm
+          income={editingIncome}
+          onClose={() => {
+            setEditingIncome(null);
+            loadIncome();
+          }}
+        />
+      )}
     </div>
   );
 };

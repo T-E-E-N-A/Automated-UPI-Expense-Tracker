@@ -12,7 +12,16 @@ const router = express.Router();
 // @access  Private
 router.post('/add', authenticateClerkUser, validateExpense, async (req, res) => {
   try {
-    const { date, category, merchant, upiId, amount, notes, paymentMethod, tags } = req.body;
+    const { 
+      date, 
+      category, 
+      merchant, 
+      upiId, 
+      amount, 
+      notes, 
+      paymentMethod, 
+      tags
+    } = req.body;
     
     const expense = new Expense({
       userId: req.user._id,

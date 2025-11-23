@@ -1,14 +1,17 @@
 import { useState } from 'react';
 import { useApp } from '../context/AppContext';
 
-const AddExpenseForm = ({ onClose }) => {
-  const { addExpense } = useApp();
+const AddExpenseForm = ({ onClose, expense = null }) => {
+  const { addExpense, updateExpense } = useApp();
+  const isEditMode = !!expense;
+  
   const [formData, setFormData] = useState({
-    category: '',
-    merchant: '',
-    amount: '',
-    notes: '',
-    paymentMethod: 'UPI'
+    category: expense?.category || '',
+    merchant: expense?.merchant || '',
+    amount: expense?.amount || '',
+    notes: expense?.notes || '',
+    paymentMethod: expense?.paymentMethod || 'UPI',
+    date: expense?.date ? new Date(expense.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
   });
   const [loading, setLoading] = useState(false);
 
@@ -42,23 +45,31 @@ const AddExpenseForm = ({ onClose }) => {
 
     setLoading(true);
     try {
-      await addExpense({
+      const expenseData = {
         ...formData,
         amount: parseFloat(formData.amount),
-        date: new Date().toISOString().split('T')[0]
-      });
+        date: formData.date || new Date().toISOString().split('T')[0]
+      };
+      
+      if (isEditMode) {
+        const expenseId = expense.id || expense._id;
+        await updateExpense(expenseId, expenseData);
+      } else {
+        await addExpense(expenseData);
+      }
       onClose();
     } catch (error) {
-      alert('Failed to add expense: ' + error.message);
+      alert(`Failed to ${isEditMode ? 'update' : 'add'} expense: ` + error.message);
     } finally {
       setLoading(false);
     }
   };
 
   const handleChange = (e) => {
+    const { name, value, type, checked } = e.target;
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value
+      [name]: type === 'checkbox' ? checked : value
     });
   };
 
@@ -66,7 +77,7 @@ const AddExpenseForm = ({ onClose }) => {
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-xl p-6 w-full max-w-md mx-4">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold text-gray-800">Add Expense</h2>
+          <h2 className="text-xl font-semibold text-gray-800">{isEditMode ? 'Edit Expense' : 'Add Expense'}</h2>
           <button
             onClick={onClose}
             className="text-gray-500 hover:text-gray-700"
@@ -76,6 +87,20 @@ const AddExpenseForm = ({ onClose }) => {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Date *
+            </label>
+            <input
+              type="date"
+              name="date"
+              value={formData.date}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              required
+            />
+          </div>
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Category *
@@ -169,7 +194,7 @@ const AddExpenseForm = ({ onClose }) => {
               disabled={loading}
               className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
             >
-              {loading ? 'Adding...' : 'Add Expense'}
+              {loading ? (isEditMode ? 'Updating...' : 'Adding...') : (isEditMode ? 'Update Expense' : 'Add Expense')}
             </button>
           </div>
         </form>

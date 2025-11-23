@@ -18,9 +18,12 @@ const incomeSchema = new mongoose.Schema({
     enum: [
       'Salary',
       'Freelance',
+      'Investment',
+      'Business',
+      'Gift',
+      'Refund',
       'Investment Returns',
       'Bonus',
-      'Gift',
       'Side Business',
       'Rental Income',
       'Dividends',
@@ -39,15 +42,6 @@ const incomeSchema = new mongoose.Schema({
     type: String,
     trim: true,
     maxlength: [500, 'Notes cannot exceed 500 characters']
-  },
-  isRecurring: {
-    type: Boolean,
-    default: false
-  },
-  recurringFrequency: {
-    type: String,
-    enum: ['weekly', 'monthly', 'quarterly', 'yearly'],
-    default: null
   },
   tags: [{
     type: String,
