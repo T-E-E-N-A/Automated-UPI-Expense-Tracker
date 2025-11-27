@@ -2,6 +2,7 @@ import express from 'express';
 import Income from '../models/Income.js';
 import { authenticateClerkUser, requireClerkUser } from '../middleware/clerkAuth.js';
 import { validateIncome, validatePagination, validateDateRange, validateObjectId } from '../middleware/validation.js';
+import { formatINR, pushNotification } from '../utils/notificationHelper.js';
 
 const router = express.Router();
 
@@ -156,6 +157,19 @@ router.put('/:id', requireClerkUser, validateObjectId, validateIncome, async (re
 
     await income.save();
 
+    await pushNotification({
+      userId: req.user._id,
+      type: 'transaction_update',
+      title: 'Income updated',
+      message: `Updated ${income.source} income to ${formatINR(income.amount)}.`,
+      data: {
+        entity: 'income',
+        incomeId: income._id,
+        source: income.source,
+        amount: income.amount
+      }
+    });
+
     res.json({
       success: true,
       message: 'Income updated successfully',
@@ -187,6 +201,19 @@ router.delete('/:id', requireClerkUser, validateObjectId, async (req, res) => {
         message: 'Income not found'
       });
     }
+
+    await pushNotification({
+      userId: req.user._id,
+      type: 'transaction_delete',
+      title: 'Income deleted',
+      message: `Deleted ${income.source} income of ${formatINR(income.amount)}.`,
+      data: {
+        entity: 'income',
+        incomeId: income._id,
+        source: income.source,
+        amount: income.amount
+      }
+    });
 
     res.json({
       success: true,

@@ -10,7 +10,18 @@ const notificationSchema = new mongoose.Schema({
   type: {
     type: String,
     required: [true, 'Notification type is required'],
-    enum: ['budget_warning', 'budget_critical', 'budget_exceeded', 'unusual_spending', 'high_frequency'],
+    enum: [
+      'budget_warning',
+      'budget_critical',
+      'budget_exceeded',
+      'category_budget_warning',
+      'category_budget_critical',
+      'category_budget_exceeded',
+      'unusual_spending',
+      'high_frequency',
+      'transaction_update',
+      'transaction_delete'
+    ],
     index: true
   },
   title: {

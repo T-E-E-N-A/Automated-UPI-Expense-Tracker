@@ -1,6 +1,7 @@
 import express from 'express';
 import Expense from '../models/Expense.js';
 import Budget from '../models/Budget.js';
+import { evaluateBudgetThresholds, formatINR, pushNotification } from '../utils/notificationHelper.js';
 import { authenticateClerkUser, requireClerkUser } from '../middleware/clerkAuth.js';
 import { validateExpense, validatePagination, validateDateRange, validateObjectId } from '../middleware/validation.js';
 
@@ -39,7 +40,28 @@ router.post('/add', authenticateClerkUser, validateExpense, async (req, res) => 
 
     // Update budget if exists
     try {
-      await Budget.updateCurrentMonthSpent(req.user._id, amount);
+      const { budget, previousSpent } = await Budget.updateCurrentMonthSpent(req.user._id, amount);
+      await evaluateBudgetThresholds({
+        userId: req.user._id,
+        scope: 'overall',
+        limit: budget.monthlyLimit,
+        thresholds: budget.alertThresholds,
+        previousValue: previousSpent,
+        currentValue: budget.currentMonthSpent
+      });
+
+      const categoryResult = await Budget.updateCategoryBudget(req.user._id, category, amount);
+      if (categoryResult?.categoryBudget) {
+        await evaluateBudgetThresholds({
+          userId: req.user._id,
+          scope: 'category',
+          category,
+          limit: categoryResult.categoryBudget.limit,
+          thresholds: categoryResult.categoryBudget.alertThresholds,
+          previousValue: categoryResult.previousSpent,
+          currentValue: categoryResult.categoryBudget.currentMonthSpent
+        });
+      }
     } catch (budgetError) {
       console.warn('Budget update failed:', budgetError.message);
     }
@@ -172,6 +194,7 @@ router.put('/:id', requireClerkUser, validateObjectId, validateExpense, async (r
 
     // Store old amount for budget update
     const oldAmount = expense.amount;
+    const oldCategory = expense.category;
 
     // Update expense
     expense.date = date ? new Date(date) : expense.date;
@@ -188,10 +211,68 @@ router.put('/:id', requireClerkUser, validateObjectId, validateExpense, async (r
     // Update budget with amount difference
     try {
       const amountDifference = amount - oldAmount;
-      await Budget.updateCurrentMonthSpent(req.user._id, amountDifference);
+      if (amountDifference !== 0) {
+        const { budget, previousSpent } = await Budget.updateCurrentMonthSpent(req.user._id, amountDifference);
+        await evaluateBudgetThresholds({
+          userId: req.user._id,
+          scope: 'overall',
+          limit: budget.monthlyLimit,
+          thresholds: budget.alertThresholds,
+          previousValue: previousSpent,
+          currentValue: budget.currentMonthSpent
+        });
+      }
+
+      // Adjust category budgets
+      if (oldCategory === expense.category) {
+        const categoryDelta = amount - oldAmount;
+        if (categoryDelta !== 0) {
+          const categoryUpdate = await Budget.updateCategoryBudget(req.user._id, expense.category, categoryDelta);
+          if (categoryUpdate?.categoryBudget && categoryDelta > 0) {
+            await evaluateBudgetThresholds({
+              userId: req.user._id,
+              scope: 'category',
+              category: expense.category,
+              limit: categoryUpdate.categoryBudget.limit,
+              thresholds: categoryUpdate.categoryBudget.alertThresholds,
+              previousValue: categoryUpdate.previousSpent,
+              currentValue: categoryUpdate.categoryBudget.currentMonthSpent
+            });
+          }
+        }
+      } else {
+        await Budget.updateCategoryBudget(req.user._id, oldCategory, -oldAmount);
+        const newCategoryUpdate = await Budget.updateCategoryBudget(req.user._id, expense.category, expense.amount);
+        if (newCategoryUpdate?.categoryBudget) {
+          await evaluateBudgetThresholds({
+            userId: req.user._id,
+            scope: 'category',
+            category: expense.category,
+            limit: newCategoryUpdate.categoryBudget.limit,
+            thresholds: newCategoryUpdate.categoryBudget.alertThresholds,
+            previousValue: newCategoryUpdate.previousSpent,
+            currentValue: newCategoryUpdate.categoryBudget.currentMonthSpent
+          });
+        }
+      }
     } catch (budgetError) {
       console.warn('Budget update failed:', budgetError.message);
     }
+
+    // Notify transaction update
+    await pushNotification({
+      userId: req.user._id,
+      type: 'transaction_update',
+      title: 'Expense updated',
+      message: `Updated ${expense.category} expense to ${formatINR(expense.amount)}.`,
+      data: {
+        entity: 'expense',
+        expenseId: expense._id,
+        category: expense.category,
+        merchant: expense.merchant,
+        amount: expense.amount
+      }
+    });
 
     res.json({
       success: true,
@@ -228,9 +309,24 @@ router.delete('/:id', requireClerkUser, validateObjectId, async (req, res) => {
     // Update budget by subtracting the amount
     try {
       await Budget.updateCurrentMonthSpent(req.user._id, -expense.amount);
+      await Budget.updateCategoryBudget(req.user._id, expense.category, -expense.amount);
     } catch (budgetError) {
       console.warn('Budget update failed:', budgetError.message);
     }
+
+    await pushNotification({
+      userId: req.user._id,
+      type: 'transaction_delete',
+      title: 'Expense deleted',
+      message: `Deleted ${expense.category} expense of ${formatINR(expense.amount)}.`,
+      data: {
+        entity: 'expense',
+        expenseId: expense._id,
+        category: expense.category,
+        merchant: expense.merchant,
+        amount: expense.amount
+      }
+    });
 
     res.json({
       success: true,

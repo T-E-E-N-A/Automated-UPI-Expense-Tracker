@@ -1,5 +1,56 @@
 import mongoose from 'mongoose';
 
+const getCurrentMonth = (input) => {
+  const date = input instanceof Date ? input : new Date();
+  return date.toISOString().slice(0, 7);
+};
+
+const categoryBudgetSchema = new mongoose.Schema({
+  category: {
+    type: String,
+    required: [true, 'Category is required'],
+    trim: true
+  },
+  limit: {
+    type: Number,
+    required: [true, 'Category limit is required'],
+    min: [0, 'Category limit must be positive'],
+    max: [999999999, 'Category limit cannot exceed 999,999,999']
+  },
+  currentMonthSpent: {
+    type: Number,
+    default: 0,
+    min: [0, 'Current month spent cannot be negative']
+  },
+  alertsTriggered: {
+    type: Number,
+    default: 0,
+    min: [0, 'Alerts triggered cannot be negative']
+  },
+  alertThresholds: {
+    warning: {
+      type: Number,
+      default: 80,
+      min: [0, 'Warning threshold must be between 0-100'],
+      max: [100, 'Warning threshold must be between 0-100']
+    },
+    critical: {
+      type: Number,
+      default: 95,
+      min: [0, 'Critical threshold must be between 0-100'],
+      max: [100, 'Critical threshold must be between 0-100']
+    }
+  },
+  isActive: {
+    type: Boolean,
+    default: true
+  },
+  lastAlertSent: {
+    type: Date,
+    default: null
+  }
+}, { _id: false });
+
 const budgetSchema = new mongoose.Schema({
   userId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -21,7 +72,7 @@ const budgetSchema = new mongoose.Schema({
   },
   currentMonth: {
     type: String,
-    default: () => new Date().toISOString().slice(0, 7) // YYYY-MM format
+    default: getCurrentMonth // YYYY-MM format
   },
   alertsTriggered: {
     type: Number,
@@ -57,6 +108,10 @@ const budgetSchema = new mongoose.Schema({
   updatedAt: {
     type: Date,
     default: Date.now
+  },
+  categoryBudgets: {
+    type: [categoryBudgetSchema],
+    default: []
   }
 }, {
   timestamps: true
@@ -110,37 +165,103 @@ budgetSchema.methods.isCriticalThresholdReached = function() {
   return this.currentMonthSpent >= threshold;
 };
 
+budgetSchema.methods.getCategoryBudget = function(category) {
+  if (!category || !this.categoryBudgets?.length) return null;
+  return this.categoryBudgets.find(entry => entry.category === category) || null;
+};
+
+const resetCategoryState = (budgetDoc) => {
+  if (!budgetDoc.categoryBudgets || !budgetDoc.categoryBudgets.length) return;
+  budgetDoc.categoryBudgets = budgetDoc.categoryBudgets.map(entry => ({
+    ...(typeof entry.toObject === 'function' ? entry.toObject() : entry),
+    currentMonthSpent: 0,
+    alertsTriggered: 0,
+    lastAlertSent: null
+  }));
+};
+
+const ensureCurrentMonthState = (budgetDoc, currentMonth) => {
+  if (budgetDoc.currentMonth === currentMonth) return false;
+  budgetDoc.currentMonth = currentMonth;
+  budgetDoc.currentMonthSpent = 0;
+  budgetDoc.alertsTriggered = 0;
+  budgetDoc.lastAlertSent = null;
+  resetCategoryState(budgetDoc);
+  return true;
+};
+
+budgetSchema.methods.syncToMonth = async function(referenceDate = new Date()) {
+  const targetMonth = getCurrentMonth(referenceDate);
+  const changed = ensureCurrentMonthState(this, targetMonth);
+  if (changed) {
+    this.updatedAt = new Date();
+    await this.save();
+  }
+  return changed;
+};
+
 // Static method to update current month spent
 budgetSchema.statics.updateCurrentMonthSpent = async function(userId, amount) {
-  const currentMonth = new Date().toISOString().slice(0, 7);
-  
-  return await this.findOneAndUpdate(
-    { userId },
-    {
-      $inc: { currentMonthSpent: amount },
-      $set: { currentMonth, updatedAt: new Date() }
-    },
-    { upsert: true, new: true }
-  );
+  const currentMonth = getCurrentMonth();
+  let budget = await this.findOne({ userId });
+
+  if (!budget) {
+    budget = new this({
+      userId,
+      monthlyLimit: 0,
+      currentMonthSpent: 0,
+      currentMonth
+    });
+  }
+
+  ensureCurrentMonthState(budget, currentMonth);
+
+  const previousSpent = budget.currentMonthSpent;
+  budget.currentMonthSpent = Math.max(0, previousSpent + amount);
+  budget.updatedAt = new Date();
+
+  await budget.save();
+
+  return { budget, previousSpent };
+};
+
+budgetSchema.statics.updateCategoryBudget = async function(userId, category, amount) {
+  if (!category) return null;
+  const budget = await this.findOne({ userId });
+  if (!budget) return null;
+
+  ensureCurrentMonthState(budget, getCurrentMonth());
+
+  const entry = budget.getCategoryBudget(category);
+  if (!entry) return null;
+
+  const previousSpent = entry.currentMonthSpent;
+  entry.currentMonthSpent = Math.max(0, previousSpent + amount);
+  budget.updatedAt = new Date();
+
+  await budget.save();
+
+  return { budget, categoryBudget: entry, previousSpent };
 };
 
 // Static method to reset monthly budget
 budgetSchema.statics.resetMonthlyBudget = async function(userId) {
-  const currentMonth = new Date().toISOString().slice(0, 7);
-  
-  return await this.findOneAndUpdate(
-    { userId },
-    {
-      $set: {
-        currentMonthSpent: 0,
-        currentMonth,
-        alertsTriggered: 0,
-        lastAlertSent: null,
-        updatedAt: new Date()
-      }
-    },
-    { upsert: true, new: true }
-  );
+  const currentMonth = getCurrentMonth();
+  let budget = await this.findOne({ userId });
+
+  if (!budget) {
+    budget = new this({
+      userId,
+      monthlyLimit: 0,
+      currentMonthSpent: 0
+    });
+  }
+
+  ensureCurrentMonthState(budget, currentMonth);
+  budget.updatedAt = new Date();
+  await budget.save();
+
+  return budget;
 };
 
 const Budget = mongoose.model('Budget', budgetSchema);

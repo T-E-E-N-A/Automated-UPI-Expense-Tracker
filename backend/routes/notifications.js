@@ -4,8 +4,29 @@ import Expense from '../models/Expense.js';
 import Notification from '../models/Notification.js';
 import { requireClerkUser } from '../middleware/clerkAuth.js';
 import { body } from 'express-validator';
+import { formatINR } from '../utils/notificationHelper.js';
 
 const router = express.Router();
+
+const typeToSeverity = (type) => {
+  switch (type) {
+    case 'budget_exceeded':
+    case 'category_budget_exceeded':
+      return 'critical';
+    case 'budget_critical':
+    case 'category_budget_critical':
+    case 'unusual_spending':
+      return 'warning';
+    case 'budget_warning':
+    case 'category_budget_warning':
+    case 'high_frequency':
+      return 'info';
+    case 'transaction_delete':
+      return 'warning';
+    default:
+      return 'info';
+  }
+};
 
 // @route   GET /api/notifications/alerts
 // @desc    Get spending alerts and notifications
@@ -13,17 +34,34 @@ const router = express.Router();
 router.get('/alerts', requireClerkUser, async (req, res) => {
   try {
     const alerts = [];
+    const storedNotifications = await Notification.find({ userId: req.user._id })
+      .sort({ createdAt: -1 })
+      .limit(10);
+
+    storedNotifications.forEach(notification => {
+      alerts.push({
+        type: typeToSeverity(notification.type),
+        title: notification.title,
+        message: notification.message,
+        timestamp: notification.createdAt,
+        action: notification.data?.action || null,
+        notificationId: notification._id,
+        source: 'notification'
+      });
+    });
     
     // Check budget alerts
     const budget = await Budget.findOne({ userId: req.user._id });
     if (budget) {
+      await budget.syncToMonth();
       const utilizationPercentage = budget.utilizationPercentage;
       
       if (budget.isExceeded()) {
+        const exceededAmount = Math.max(0, budget.currentMonthSpent - budget.monthlyLimit);
         alerts.push({
           type: 'critical',
           title: 'Budget Exceeded',
-          message: `You've exceeded your monthly budget by ₹${Math.abs(budget.remainingBudget)}.`,
+          message: `You've exceeded your monthly budget by ${formatINR(exceededAmount)}.`,
           timestamp: new Date(),
           action: 'Review your expenses and consider adjusting your budget.'
         });
