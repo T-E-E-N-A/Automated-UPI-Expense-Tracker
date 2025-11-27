@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useUser } from '@clerk/clerk-react';
 import api from '../services/api';
+import BudgetSettings from '../components/BudgetSettings';
 
 const ProfilePage = () => {
   const { user } = useUser();
@@ -176,6 +177,8 @@ const ProfilePage = () => {
           </button>
         </div>
       </form>
+
+      <BudgetSettings />
     </div>
   );
 };
