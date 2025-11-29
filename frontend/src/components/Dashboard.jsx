@@ -30,6 +30,9 @@ const Dashboard = () => {
   const [bankMessage, setBankMessage] = useState('');
   const [showMLModal, setShowMLModal] = useState(false);
   const [alerts, setAlerts] = useState([]);
+  const [budget, setBudget] = useState(null);
+  const [budgetLoading, setBudgetLoading] = useState(false);
+  const [budgetError, setBudgetError] = useState('');
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const notificationRef = useRef(null);
 
@@ -43,6 +46,23 @@ const Dashboard = () => {
       }
     };
     if (user) fetchAlerts();
+  }, [user]);
+
+  useEffect(() => {
+    const loadBudget = async () => {
+      if (!user) return;
+      try {
+        setBudgetLoading(true);
+        const data = await api.getBudget(user);
+        setBudget(data);
+        setBudgetError('');
+      } catch (err) {
+        setBudgetError(err.message || 'Failed to load budget');
+      } finally {
+        setBudgetLoading(false);
+      }
+    };
+    loadBudget();
   }, [user]);
 
   // Close notification dropdown when clicking outside
@@ -72,7 +92,7 @@ const Dashboard = () => {
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
       currency: 'INR',
-    }).format(amount);
+    }).format(amount || 0);
   };
 
   const formatDate = (dateString) => {
@@ -199,6 +219,100 @@ const Dashboard = () => {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Budget Overview */}
+      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <p className="text-sm font-medium text-gray-600 mb-1">Monthly Budget</p>
+            {budgetLoading ? (
+              <p className="text-gray-500 text-sm">Loading budget...</p>
+            ) : budgetError ? (
+              <p className="text-sm text-red-600">{budgetError}</p>
+            ) : budget ? (
+              <>
+                <p className="text-2xl font-bold text-gray-800">{formatCurrency(budget.monthlyLimit)}</p>
+                <p className="text-sm text-gray-500 mt-1">
+                  Spent {formatCurrency(budget.currentMonthSpent)} · Remaining {formatCurrency(budget.remainingBudget)}
+                </p>
+              </>
+            ) : (
+              <p className="text-sm text-gray-500">No budget configured yet.</p>
+            )}
+          </div>
+          <Link
+            to="/profile"
+            className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700"
+          >
+            Set / Update Budget
+          </Link>
+        </div>
+
+        {budget && (
+          <>
+            <div className="mt-6">
+              <div className="flex justify-between text-sm text-gray-600 mb-2">
+                <span>{Math.min(100, budget.utilizationPercentage || 0)}% used</span>
+                <span className={budget.isExceeded ? 'text-red-600 font-medium' : ''}>
+                  {budget.isExceeded ? 'Budget exceeded' : `${formatCurrency(budget.remainingBudget)} left`}
+                </span>
+              </div>
+              <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
+                <div
+                  className={`h-3 rounded-full ${
+                    budget.isExceeded
+                      ? 'bg-red-600'
+                      : (budget.utilizationPercentage || 0) >= (budget.alertThresholds?.critical || 95)
+                        ? 'bg-red-500'
+                        : (budget.utilizationPercentage || 0) >= (budget.alertThresholds?.warning || 80)
+                          ? 'bg-yellow-400'
+                          : 'bg-green-500'
+                  }`}
+                  style={{ width: `${Math.min(100, budget.utilizationPercentage || 0)}%` }}
+                />
+              </div>
+            </div>
+
+            {Array.isArray(budget.categoryBudgets) && budget.categoryBudgets.length > 0 && (
+              <div className="mt-6">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold text-gray-700">Category Budgets</h3>
+                  <span className="text-xs text-gray-400">Optional limits per category</span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                  {budget.categoryBudgets
+                    .filter((cat) => cat.limit > 0)
+                    .map((cat) => {
+                      const percentage = cat.limit > 0 ? Math.min(100, Math.round((cat.currentMonthSpent / cat.limit) * 100)) : 0;
+                      const barColor =
+                        percentage >= 100
+                          ? 'bg-red-600'
+                          : percentage >= (cat.alertThresholds?.critical || 95)
+                            ? 'bg-red-500'
+                            : percentage >= (cat.alertThresholds?.warning || 80)
+                              ? 'bg-yellow-400'
+                              : 'bg-blue-500';
+                      return (
+                        <div key={cat.category} className="border border-gray-200 rounded-lg p-4">
+                          <div className="flex items-center justify-between text-sm font-medium text-gray-700 mb-1">
+                            <span>{cat.category}</span>
+                            <span>{percentage}%</span>
+                          </div>
+                          <p className="text-xs text-gray-500 mb-2">
+                            {formatCurrency(cat.currentMonthSpent)} / {formatCurrency(cat.limit)}
+                          </p>
+                          <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                            <div className={`h-2 rounded-full ${barColor}`} style={{ width: `${percentage}%` }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+            )}
+          </>
+        )}
       </div>
 
       {/* Bank Message Processing Box */}

@@ -146,6 +146,33 @@ export const validateBudget = [
     .optional()
     .isInt({ min: 0, max: 100 })
     .withMessage('Critical threshold must be between 0 and 100'),
+
+  body('categoryBudgets')
+    .optional()
+    .isArray({ max: 30 })
+    .withMessage('Category budgets must be an array'),
+
+  body('categoryBudgets.*.category')
+    .optional()
+    .isString()
+    .trim()
+    .isLength({ min: 1, max: 100 })
+    .withMessage('Category name must be between 1 and 100 characters'),
+
+  body('categoryBudgets.*.limit')
+    .optional()
+    .isFloat({ min: 0, max: 999999999 })
+    .withMessage('Category limit must be between 0 and 999,999,999'),
+
+  body('categoryBudgets.*.alertThresholds.warning')
+    .optional()
+    .isInt({ min: 0, max: 100 })
+    .withMessage('Category warning threshold must be between 0 and 100'),
+
+  body('categoryBudgets.*.alertThresholds.critical')
+    .optional()
+    .isInt({ min: 0, max: 100 })
+    .withMessage('Category critical threshold must be between 0 and 100'),
   
   handleValidationErrors
 ];

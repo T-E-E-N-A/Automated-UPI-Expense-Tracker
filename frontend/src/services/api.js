@@ -172,6 +172,27 @@ class ApiService {
     return res;
   }
 
+  // Budget endpoints
+  async getBudget(user = null) {
+    const res = await this.request('/budget', {}, user);
+    return res.budget;
+  }
+
+  async updateBudget(budgetData, user = null) {
+    const res = await this.request('/budget', {
+      method: 'PUT',
+      body: JSON.stringify(budgetData)
+    }, user);
+    return res.budget;
+  }
+
+  async resetBudget(user = null) {
+    const res = await this.request('/budget/reset', {
+      method: 'POST'
+    }, user);
+    return res.budget;
+  }
+
   // Profile endpoints (Clerk-backed)
   async getProfile(user = null) {
     const res = await this.request('/auth/me', {}, user);
